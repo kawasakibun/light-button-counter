@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+.env
+*.log
+
+# Arduino スケッチはローカル専用 (Wi-Fi認証情報を含むためGitHubに置かない)
+arduino/

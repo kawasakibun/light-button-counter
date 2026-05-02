@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Light Button Counter</title>
+  <style>
+    :root {
+      --bg: #0e1116;
+      --fg: #e6edf3;
+      --accent: #2ea0ff;
+      --hit: #ff7043;
+      --muted: #8b949e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin: 0 0 8px;
+      letter-spacing: 0.05em;
+    }
+    .count-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    #count {
+      font-size: clamp(8rem, 28vw, 22rem);
+      font-weight: 800;
+      line-height: 1;
+      color: var(--accent);
+      transition: color 120ms ease;
+      font-variant-numeric: tabular-nums;
+    }
+    #count.hit {
+      color: var(--hit);
+      animation: pop 380ms ease;
+    }
+    .unit {
+      font-size: 2rem;
+      color: var(--muted);
+    }
+    .status {
+      margin-top: 32px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #555;
+    }
+    .dot.connected { background: #3fb950; box-shadow: 0 0 8px #3fb950; }
+    .dot.disconnected { background: #f85149; }
+    button {
+      margin-top: 24px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid #30363d;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    button:hover { color: var(--fg); border-color: var(--fg); }
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <h1>LIGHT &times; BUTTON COUNTER</h1>
+  <div class="count-wrap">
+    <div id="count">0</div>
+    <div class="unit">回</div>
+  </div>
+  <div class="status">
+    <span id="dot" class="dot"></span>
+    <span id="status">接続中…</span>
+  </div>
+  <button id="reset">リセット</button>
+
+  <script>
+    const countEl  = document.getElementById('count');
+    const statusEl = document.getElementById('status');
+    const dotEl    = document.getElementById('dot');
+    let lastCount = null;
+
+    function applyCount(n, animate) {
+      countEl.textContent = n;
+      if (animate && lastCount !== null && n !== lastCount) {
+        countEl.classList.remove('hit');
+        // reflow to restart animation
+        void countEl.offsetWidth;
+        countEl.classList.add('hit');
+      }
+      lastCount = n;
+    }
+
+    function markConnected() {
+      statusEl.textContent = 'リアルタイム接続中';
+      dotEl.className = 'dot connected';
+    }
+
+    function connect() {
+      const es = new EventSource('/api/events');
+      es.onopen = markConnected;
+      es.onmessage = (ev) => {
+        markConnected();
+        try {
+          const data = JSON.parse(ev.data);
+          if (typeof data.count === 'number') {
+            applyCount(data.count, true);
+          }
+        } catch (e) { /* ignore */ }
+      };
+      es.onerror = () => {
+        statusEl.textContent = '切断 — 自動再接続します';
+        dotEl.className = 'dot disconnected';
+      };
+    }
+
+    // フォールバック: SSE が来なくてもカウントを定期取得
+    setInterval(async () => {
+      try {
+        const r = await fetch('/api/count', { cache: 'no-store' });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (typeof d.count === 'number') applyCount(d.count, true);
+      } catch (_) {}
+    }, 2000);
+
+    document.getElementById('reset').addEventListener('click', async () => {
+      if (!confirm('カウントを 0 にリセットしますか？')) return;
+      await fetch('/api/reset', { method: 'POST' });
+    });
+
+    connect();
+  </script>
+</body>
+</html>
