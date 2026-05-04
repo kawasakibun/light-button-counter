@@ -3,156 +3,667 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Light Button Counter</title>
+  <title>クラゲッチュ</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #0e1116;
-      --fg: #e6edf3;
-      --accent: #2ea0ff;
-      --hit: #ff7043;
-      --muted: #8b949e;
+      --bg: #08060f;
+      --bg2: #120a25;
+      --fg: #f3eaff;
+      --muted: #8a7ab0;
+      --accent: #c084fc;
+      --accent2: #7c3aed;
+      --hit: #ff8a3d;
+      --good: #4ade80;
+      --danger: #f87171;
     }
     * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
     body {
-      margin: 0;
       min-height: 100vh;
-      background: var(--bg);
+      background:
+        radial-gradient(ellipse at 20% 10%, rgba(124,58,237,0.25), transparent 60%),
+        radial-gradient(ellipse at 80% 90%, rgba(192,132,252,0.18), transparent 60%),
+        var(--bg);
       color: var(--fg);
       font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Yu Gothic UI", sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+      letter-spacing: 0.02em;
     }
-    h1 {
-      font-size: 1.4rem;
-      font-weight: 500;
-      color: var(--muted);
-      margin: 0 0 8px;
-      letter-spacing: 0.05em;
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 24px 20px 80px;
     }
-    .count-wrap {
-      display: flex;
-      align-items: baseline;
-      gap: 16px;
+    header {
+      text-align: center;
+      margin-bottom: 16px;
     }
-    #count {
-      font-size: clamp(8rem, 28vw, 22rem);
+    .title {
+      font-size: clamp(2rem, 6vw, 3.4rem);
       font-weight: 800;
-      line-height: 1;
-      color: var(--accent);
-      transition: color 120ms ease;
-      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.08em;
+      background: linear-gradient(90deg, #c084fc, #f0abfc, #c084fc);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin: 0;
     }
-    #count.hit {
-      color: var(--hit);
-      animation: pop 380ms ease;
-    }
-    .unit {
-      font-size: 2rem;
+    .subtitle {
       color: var(--muted);
-    }
-    .status {
-      margin-top: 32px;
       font-size: 0.9rem;
-      color: var(--muted);
-      display: flex;
+      margin-top: 4px;
+    }
+    .conn {
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 8px;
     }
-    .dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: #555;
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+    .dot.connected { background: var(--good); box-shadow: 0 0 6px var(--good); }
+    .dot.disconnected { background: var(--danger); }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+      border: 1px solid rgba(192,132,252,0.18);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+      backdrop-filter: blur(4px);
     }
-    .dot.connected { background: #3fb950; box-shadow: 0 0 8px #3fb950; }
-    .dot.disconnected { background: #f85149; }
+
+    /* ===== Jellyfish ===== */
+    .jelly-stage {
+      position: relative;
+      height: 220px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    .jelly {
+      width: 180px;
+      height: 180px;
+      animation: float 4s ease-in-out infinite;
+      filter: drop-shadow(0 0 24px rgba(192,132,252,0.55));
+      object-fit: contain;
+    }
+    .jelly.tiny { width: 80px; height: 80px; }
+    .jelly.big  { width: 240px; height: 240px; }
+    @keyframes float {
+      0%,100% { transform: translateY(0) rotate(-2deg); }
+      50%     { transform: translateY(-14px) rotate(2deg); }
+    }
+    .jelly.hit { animation: jellyHit 380ms ease; }
+    @keyframes jellyHit {
+      0%   { transform: scale(1); filter: drop-shadow(0 0 24px rgba(255,138,61,0.9)); }
+      40%  { transform: scale(1.18) rotate(-4deg); filter: drop-shadow(0 0 36px rgba(255,138,61,1)); }
+      100% { transform: scale(1); filter: drop-shadow(0 0 24px rgba(192,132,252,0.55)); }
+    }
+
+    /* ===== Form ===== */
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], select {
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      color: var(--fg);
+      border: 1px solid rgba(192,132,252,0.3);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      outline: none;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--accent); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+
     button {
-      margin-top: 24px;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: white;
+      border: none;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: transform 100ms ease, box-shadow 100ms ease;
+      width: 100%;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,0.45); }
+    button.ghost {
       background: transparent;
       color: var(--muted);
-      border: 1px solid #30363d;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
+      border: 1px solid rgba(192,132,252,0.3);
     }
-    button:hover { color: var(--fg); border-color: var(--fg); }
-    @keyframes pop {
-      0%   { transform: scale(1); }
-      30%  { transform: scale(1.18); }
-      100% { transform: scale(1); }
+    button.ghost:hover { color: var(--fg); border-color: var(--accent); box-shadow: none; }
+
+    /* ===== Play screen ===== */
+    .play-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .stat {
+      text-align: center;
+      padding: 14px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(192,132,252,0.15);
+      border-radius: 12px;
+    }
+    .stat .label { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+    .stat .value {
+      font-size: 2.4rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .stat.score .value { color: var(--accent); }
+    .stat.timer .value { color: var(--fg); }
+    .stat.timer.urgent .value { color: var(--hit); }
+
+    .big-score {
+      text-align: center;
+      margin: 8px 0 12px;
+    }
+    .big-score .num {
+      font-size: clamp(4rem, 18vw, 8rem);
+      font-weight: 900;
+      color: var(--accent);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      transition: color 100ms ease;
+    }
+    .big-score.hit .num { color: var(--hit); }
+    .big-score .unit { color: var(--muted); font-size: 1rem; margin-left: 6px; }
+
+    .player-tag {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+
+    /* ===== Result ===== */
+    .result-num {
+      text-align: center;
+      font-size: clamp(3rem, 14vw, 6rem);
+      font-weight: 900;
+      color: var(--accent);
+      line-height: 1;
+      margin: 8px 0;
+    }
+    .result-sub {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 16px;
+    }
+
+    /* ===== Ranking ===== */
+    h2 {
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin: 0 0 12px;
+      text-transform: uppercase;
+    }
+    .rank-list { list-style: none; padding: 0; margin: 0; }
+    .rank-list li {
+      display: grid;
+      grid-template-columns: 32px 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(192,132,252,0.08);
+      font-variant-numeric: tabular-nums;
+    }
+    .rank-list li:last-child { border-bottom: none; }
+    .rank-pos { color: var(--muted); font-weight: 700; }
+    .rank-pos.top1 { color: #ffd700; }
+    .rank-pos.top2 { color: #c0c0c0; }
+    .rank-pos.top3 { color: #cd7f32; }
+    .rank-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rank-score { font-weight: 800; color: var(--accent); font-size: 1.1rem; }
+    .rank-light { font-size: 0.75rem; color: var(--muted); }
+    .empty { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 12px 0; }
+
+    /* ===== Histogram ===== */
+    .chart-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+    .chart-note .pulse {
+      color: var(--accent);
+    }
+
+    .hidden { display: none !important; }
+
+    .footer-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    @media (max-width: 480px) { .footer-actions { grid-template-columns: 1fr; } }
+
+    .badge-light {
+      display: inline-block;
+      background: rgba(192,132,252,0.15);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      margin-left: 6px;
     }
   </style>
 </head>
 <body>
-  <h1>LIGHT &times; BUTTON COUNTER</h1>
-  <div class="count-wrap">
-    <div id="count">0</div>
-    <div class="unit">回</div>
+  <div class="wrap">
+    <header>
+      <h1 class="title">クラゲッチュ</h1>
+      <div class="conn">
+        <span id="dot" class="dot"></span>
+        <span id="connText">接続中…</span>
+      </div>
+    </header>
+
+    <!-- ===== SETUP SCREEN ===== -->
+    <section id="screen-setup" class="card">
+      <div class="jelly-stage">
+        <img id="jellyHero" class="jelly big" alt="クラゲ" src="/kurage.png" onerror="this.style.display='none';document.getElementById('jellyFallback').style.display='block'">
+        <svg id="jellyFallback" class="jelly big" style="display:none" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="jg" cx="50%" cy="40%" r="55%">
+              <stop offset="0%" stop-color="#f0abfc"/>
+              <stop offset="60%" stop-color="#c084fc"/>
+              <stop offset="100%" stop-color="#7c3aed"/>
+            </radialGradient>
+          </defs>
+          <ellipse cx="100" cy="80" rx="70" ry="55" fill="url(#jg)" opacity="0.95"/>
+          <ellipse cx="80" cy="65" rx="14" ry="8" fill="#fff" opacity="0.5"/>
+          <circle cx="78" cy="85" r="4" fill="#1a0a2e"/>
+          <circle cx="118" cy="85" r="4" fill="#1a0a2e"/>
+          <path d="M85 100 Q100 110 115 100" stroke="#1a0a2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M55 125 Q60 160 50 185" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M75 130 Q70 165 80 190" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M100 132 Q105 168 95 192" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M125 130 Q130 165 120 188" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M145 125 Q140 158 150 185" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+        </svg>
+      </div>
+
+      <label>制限時間</label>
+      <div class="row">
+        <select id="durMin">
+          <option value="1">1 分</option>
+          <option value="2">2 分</option>
+          <option value="3">3 分</option>
+          <option value="4">4 分</option>
+          <option value="5">5 分</option>
+        </select>
+        <select id="durSec">
+          <option value="0">0 秒</option>
+          <option value="10">10 秒</option>
+          <option value="20">20 秒</option>
+          <option value="30">30 秒</option>
+          <option value="40">40 秒</option>
+          <option value="50">50 秒</option>
+        </select>
+      </div>
+      <div id="durationPreview" style="margin-top: 6px; color: var(--muted); font-size: 0.85rem;">= 01:00</div>
+
+      <div style="height: 18px"></div>
+      <button id="btnStart">スタート</button>
+    </section>
+
+    <!-- ===== PLAY SCREEN ===== -->
+    <section id="screen-play" class="card hidden">
+      <div class="jelly-stage" style="height: 160px">
+        <img id="jellyPlay" class="jelly" alt="クラゲ" src="/kurage.png" onerror="this.style.display='none';document.getElementById('jellyPlayFb').style.display='block'">
+        <svg id="jellyPlayFb" class="jelly" style="display:none" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="jg2" cx="50%" cy="40%" r="55%">
+              <stop offset="0%" stop-color="#f0abfc"/>
+              <stop offset="60%" stop-color="#c084fc"/>
+              <stop offset="100%" stop-color="#7c3aed"/>
+            </radialGradient>
+          </defs>
+          <ellipse cx="100" cy="80" rx="70" ry="55" fill="url(#jg2)" opacity="0.95"/>
+          <ellipse cx="80" cy="65" rx="14" ry="8" fill="#fff" opacity="0.5"/>
+          <circle cx="78" cy="85" r="4" fill="#1a0a2e"/>
+          <circle cx="118" cy="85" r="4" fill="#1a0a2e"/>
+          <path d="M85 100 Q100 110 115 100" stroke="#1a0a2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M55 125 Q60 160 50 185" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M75 130 Q70 165 80 190" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M100 132 Q105 168 95 192" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M125 130 Q130 165 120 188" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M145 125 Q140 158 150 185" stroke="#c084fc" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+        </svg>
+      </div>
+
+      <div class="big-score" id="bigScore">
+        <span class="num" id="scoreNum">0</span><span class="unit">捕獲</span>
+      </div>
+
+      <div class="play-grid">
+        <div class="stat timer" id="timerCard">
+          <div class="label">のこり時間</div>
+          <div class="value" id="timerVal">--:--</div>
+        </div>
+        <div class="stat">
+          <div class="label">宇宙線 検出</div>
+          <div class="value" id="lightVal" style="color: var(--accent2)">0</div>
+        </div>
+      </div>
+
+      <button class="ghost" id="btnEnd">途中で終わる</button>
+    </section>
+
+    <!-- ===== RESULT SCREEN ===== -->
+    <section id="screen-result" class="card hidden">
+      <div class="jelly-stage" style="height: 140px">
+        <img class="jelly tiny" alt="クラゲ" src="/kurage.png" onerror="this.style.display='none'">
+      </div>
+      <div class="result-sub">記録</div>
+      <div class="result-num" id="resultScore">0</div>
+      <div class="result-sub">
+        <span id="resultDuration">01:00</span> で
+        <span id="resultLight">0</span> 個の宇宙線を観測 ✨
+      </div>
+      <div class="footer-actions">
+        <button id="btnAgain">もう一度</button>
+        <button class="ghost" id="btnHome">タイトルへ</button>
+      </div>
+    </section>
+
+    <!-- ===== HISTOGRAM ===== -->
+    <section class="card">
+      <h2>宇宙線ヒストグラム (<span id="histDuration">01:00</span>・<span id="histGames">0</span> 試合)</h2>
+      <div style="position: relative; height: 260px;"><canvas id="histChart"></canvas></div>
+    </section>
   </div>
-  <div class="status">
-    <span id="dot" class="dot"></span>
-    <span id="status">接続中…</span>
-  </div>
-  <button id="reset">リセット</button>
 
   <script>
-    const countEl  = document.getElementById('count');
-    const statusEl = document.getElementById('status');
-    const dotEl    = document.getElementById('dot');
-    let lastCount = null;
+    // ===== Elements =====
+    const $ = (id) => document.getElementById(id);
+    const screenSetup = $('screen-setup');
+    const screenPlay  = $('screen-play');
+    const screenResult = $('screen-result');
 
-    function applyCount(n, animate) {
-      countEl.textContent = n;
-      if (animate && lastCount !== null && n !== lastCount) {
-        countEl.classList.remove('hit');
-        // reflow to restart animation
-        void countEl.offsetWidth;
-        countEl.classList.add('hit');
+    const dotEl = $('dot');
+    const connText = $('connText');
+
+    // ===== State =====
+    let lastButtonCount = 0;
+    let lastStatus = 'idle';
+    let lastSnapshot = null;
+    let localEndsAt = 0;           // クライアントローカル時刻 (ms)
+    let serverClockOffset = 0;     // server - client (ms)
+    let tickHandle = null;
+
+    // ===== Screen control =====
+    function showScreen(name) {
+      screenSetup.classList.toggle('hidden', name !== 'setup');
+      screenPlay.classList.toggle('hidden', name !== 'play');
+      screenResult.classList.toggle('hidden', name !== 'result');
+    }
+
+    // ===== Helpers =====
+    function fmtTime(ms) {
+      const s = Math.max(0, Math.ceil(ms / 1000));
+      const mm = String(Math.floor(s / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return `${mm}:${ss}`;
+    }
+    function fmtSec(sec) {
+      if (sec == null) return '--:--';
+      const s = Math.max(0, Math.floor(sec));
+      const mm = String(Math.floor(s / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return `${mm}:${ss}`;
+    }
+    function clampSecClient(v) {
+      let n = parseInt(v);
+      if (!Number.isFinite(n)) n = 60;
+      n = Math.round(n / 10) * 10;
+      return Math.max(10, Math.min(600, n));
+    }
+
+    function pulseScore() {
+      const el = $('bigScore');
+      el.classList.remove('hit');
+      void el.offsetWidth;
+      el.classList.add('hit');
+      const j = $('jellyPlay');
+      const jf = $('jellyPlayFb');
+      [j, jf].forEach(x => {
+        if (!x) return;
+        x.classList.remove('hit');
+        void x.offsetWidth;
+        x.classList.add('hit');
+      });
+    }
+
+    // ===== Chart =====
+    let chart = null;
+    function buildHistogramData(counts) {
+      if (!counts || counts.length === 0) {
+        // 空でも軸が見えるようプレースホルダ目盛 (0..5)
+        return { labels: ['0','1','2','3','4','5'], data: [0,0,0,0,0,0] };
       }
-      lastCount = n;
+      const max = Math.max(...counts);
+      const bins = Math.min(20, Math.max(5, max + 1));
+      const buckets = new Array(bins).fill(0);
+      const step = (max + 1) / bins;
+      for (const v of counts) {
+        let idx = Math.floor(v / step);
+        if (idx >= bins) idx = bins - 1;
+        buckets[idx]++;
+      }
+      const labels = buckets.map((_, i) => {
+        const lo = Math.floor(i * step);
+        const hi = Math.floor((i + 1) * step) - 1;
+        return lo === hi ? `${lo}` : `${lo}-${hi}`;
+      });
+      return { labels, data: buckets };
     }
 
-    function markConnected() {
-      statusEl.textContent = 'リアルタイム接続中';
-      dotEl.className = 'dot connected';
-    }
-
-    function connect() {
-      const es = new EventSource('/api/events');
-      es.onopen = markConnected;
-      es.onmessage = (ev) => {
-        markConnected();
-        try {
-          const data = JSON.parse(ev.data);
-          if (typeof data.count === 'number') {
-            applyCount(data.count, true);
+    function ensureChart() {
+      if (chart) return chart;
+      const ctx = $('histChart').getContext('2d');
+      const axisTitle = { display: true, color: '#f3eaff', font: { size: 13, weight: 'bold' } };
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [{ label: '試合数', data: [], backgroundColor: 'rgba(192,132,252,0.65)', borderColor: 'rgba(240,171,252,1)', borderWidth: 1 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              ticks: { color: '#c9bce6' },
+              grid: { color: 'rgba(192,132,252,0.08)' },
+              title: { ...axisTitle, text: '宇宙線 検出回数 (試合あたり)' }
+            },
+            y: {
+              ticks: { color: '#c9bce6', stepSize: 1, precision: 0 },
+              grid: { color: 'rgba(192,132,252,0.08)' },
+              title: { ...axisTitle, text: '試合数' },
+              beginAtZero: true,
+              suggestedMax: 3
+            }
           }
-        } catch (e) { /* ignore */ }
+        }
+      });
+      return chart;
+    }
+
+    function renderHistogram(hist) {
+      const c = ensureChart();
+      const { labels, data } = buildHistogramData(hist.counts || []);
+      c.data.labels = labels;
+      c.data.datasets[0].data = data;
+      c.update('none');
+      $('histDuration').textContent = hist.durationSec != null ? fmtSec(hist.durationSec) : '--:--';
+      $('histGames').textContent = (hist.counts || []).length;
+    }
+
+    // ===== Local timer (毎フレーム) =====
+    function tickLocalTimer() {
+      if (lastStatus !== 'running' || !localEndsAt) return;
+      const now = Date.now() + serverClockOffset;
+      const remaining = Math.max(0, localEndsAt - now);
+      $('timerVal').textContent = fmtTime(remaining);
+      $('timerCard').classList.toggle('urgent', remaining < 10000);
+      if (remaining <= 0) {
+        // サーバ側の終了通知を待つあいだ、表示は 00:00 で止める
+      }
+    }
+    function ensureTickLoop() {
+      if (tickHandle) return;
+      tickHandle = setInterval(tickLocalTimer, 200);
+    }
+    function stopTickLoop() {
+      if (tickHandle) { clearInterval(tickHandle); tickHandle = null; }
+    }
+
+    // ===== State render =====
+    function applyState(s) {
+      lastSnapshot = s;
+
+      dotEl.className = 'dot connected';
+      connText.textContent = 'リアルタイム接続中';
+
+      // サーバ時刻と同期
+      if (s.serverNow) serverClockOffset = s.serverNow - Date.now();
+      if (s.status === 'running' && s.endsAt) {
+        localEndsAt = s.endsAt;
+      } else if (s.status === 'running') {
+        localEndsAt = (Date.now() + serverClockOffset) + (s.remainingMs || 0);
+      } else {
+        localEndsAt = 0;
+      }
+
+      // Score animation
+      if (s.status === 'running' && s.buttonCount > lastButtonCount) {
+        pulseScore();
+      }
+      lastButtonCount = s.buttonCount;
+
+      // Render based on status
+      if (s.status === 'running') {
+        showScreen('play');
+        $('scoreNum').textContent = s.buttonCount;
+        $('lightVal').textContent = s.lightCount;
+        ensureTickLoop();
+        tickLocalTimer();
+      } else if (s.status === 'ended') {
+        stopTickLoop();
+        if (lastStatus === 'running' || screenPlay.classList.contains('hidden') === false) {
+          showScreen('result');
+          $('resultScore').textContent = s.buttonCount;
+          $('resultDuration').textContent = fmtSec(s.durationSec);
+          $('resultLight').textContent = s.lightCount;
+        }
+      } else {
+        stopTickLoop();
+        if (screenResult.classList.contains('hidden') && screenPlay.classList.contains('hidden')) {
+          showScreen('setup');
+        }
+      }
+
+      renderHistogram(s.histogram || { durationSec: s.durationSec, counts: [] });
+
+      lastStatus = s.status;
+    }
+
+    // ===== Network =====
+    async function postJSON(path, body) {
+      const r = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      });
+      return r.ok ? r.json() : null;
+    }
+
+    async function fetchState() {
+      try {
+        const r = await fetch('/api/state', { cache: 'no-store' });
+        if (r.ok) applyState(await r.json());
+      } catch (_) {}
+    }
+
+    function connectSSE() {
+      const es = new EventSource('/api/events');
+      es.onopen = () => {
+        dotEl.className = 'dot connected';
+        connText.textContent = 'リアルタイム接続中';
+      };
+      es.onmessage = (ev) => {
+        try {
+          const m = JSON.parse(ev.data);
+          if (m.type === 'state' && m.state) applyState(m.state);
+        } catch (_) {}
       };
       es.onerror = () => {
-        statusEl.textContent = '切断 — 自動再接続します';
         dotEl.className = 'dot disconnected';
+        connText.textContent = '切断 — 自動再接続します';
       };
     }
 
-    // フォールバック: SSE が来なくてもカウントを定期取得
-    setInterval(async () => {
-      try {
-        const r = await fetch('/api/count', { cache: 'no-store' });
-        if (!r.ok) return;
-        const d = await r.json();
-        if (typeof d.count === 'number') applyCount(d.count, true);
-      } catch (_) {}
-    }, 2000);
+    // ===== Events =====
+    function readDurationSec() {
+      const m = parseInt($('durMin').value, 10) || 0;
+      const s = parseInt($('durSec').value, 10) || 0;
+      return clampSecClient(m * 60 + s);
+    }
+    function updateDurationPreview() {
+      $('durationPreview').textContent = '= ' + fmtSec(readDurationSec());
+    }
+    $('durMin').addEventListener('change', () => { updateDurationPreview(); fetchState(); });
+    $('durSec').addEventListener('change', () => { updateDurationPreview(); fetchState(); });
+    updateDurationPreview();
 
-    document.getElementById('reset').addEventListener('click', async () => {
-      if (!confirm('カウントを 0 にリセットしますか？')) return;
-      await fetch('/api/reset', { method: 'POST' });
+    $('btnStart').addEventListener('click', async () => {
+      const durationSec = readDurationSec();
+      lastButtonCount = 0;
+      const r = await postJSON('/api/game/start', { durationSec });
+      if (r && r.state) applyState(r.state);
     });
 
-    connect();
+    $('btnEnd').addEventListener('click', async () => {
+      if (!confirm('ゲームを途中で終了しますか？')) return;
+      const r = await postJSON('/api/game/end', {});
+      if (r && r.state) applyState(r.state);
+    });
+
+    $('btnAgain').addEventListener('click', () => {
+      showScreen('setup');
+    });
+    $('btnHome').addEventListener('click', () => {
+      showScreen('setup');
+    });
+
+    // ===== Boot =====
+    showScreen('setup');
+    connectSSE();
+    fetchState();
+    setInterval(() => {
+      // light fallback poll
+      if (dotEl.classList.contains('disconnected')) fetchState();
+    }, 3000);
   </script>
 </body>
 </html>
