@@ -19,7 +19,16 @@
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
+    #cosmicCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
     body {
+      position: relative;
       min-height: 100vh;
       background:
         radial-gradient(ellipse at 20% 10%, rgba(124,58,237,0.25), transparent 60%),
@@ -33,6 +42,8 @@
       max-width: 880px;
       margin: 0 auto;
       padding: 24px 20px 80px;
+      position: relative;
+      z-index: 1;
     }
     header {
       text-align: center;
@@ -269,6 +280,7 @@
   </style>
 </head>
 <body>
+  <canvas id="cosmicCanvas"></canvas>
   <div class="wrap">
     <header>
       <h1 class="title">クラゲッチュ</h1>
@@ -395,6 +407,196 @@
   </div>
 
   <script>
+    // ===== Cosmic ray air shower =====
+    // 5秒に1回、画面上空から1次宇宙線が飛来して大気中で
+    // 2〜3個に分裂を繰り返し (空気シャワー) 地表へ降り注ぐ。
+    (function cosmicShower() {
+      const canvas = document.getElementById('cosmicCanvas');
+      const ctx = canvas.getContext('2d');
+      const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let particles = [];
+
+      function resize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      // 世代ごとの色 (0=1次宇宙線・白青 → 末端電子/陽電子・白)
+      const GEN_COLORS = [
+        'rgba(220,235,255,', // 1次
+        'rgba(168,196,255,', // 2次 (淡青)
+        'rgba(192,132,252,', // 3次 (紫)
+        'rgba(240,171,252,', // 4次 (桃紫)
+        'rgba(255,210,245,', // 5次 (桃白)
+        'rgba(255,235,255,', // 末端
+      ];
+      const MAX_GEN = 3;
+
+      function spawnPrimary() {
+        const w = canvas.width;
+        const h = canvas.height;
+        const startX = (0.15 + Math.random() * 0.7) * w;
+        const speed = (14 + Math.random() * 4) * dpr;
+        // ほぼ真下、わずかに角度を持つ
+        const angle = Math.PI / 2 + (Math.random() - 0.5) * 0.18;
+        particles.push({
+          x: startX,
+          y: -40 * dpr,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          width: 3.0 * dpr,
+          tail: 90 * dpr,
+          gen: 0,
+          // 1段目の相互作用は画面上部 15〜30%
+          splitAt: h * (0.15 + Math.random() * 0.15),
+          alive: true,
+        });
+      }
+
+      function splitParticle(p) {
+        // 2 〜 3 個に分裂
+        const n = 2 + (Math.random() < 0.45 ? 1 : 0);
+        const baseAngle = Math.atan2(p.vy, p.vx);
+        const speed = Math.hypot(p.vx, p.vy);
+        const remaining = canvas.height - p.y;
+        for (let i = 0; i < n; i++) {
+          const spread = 0.18 + p.gen * 0.10 + Math.random() * 0.08;
+          const dAngle = (i - (n - 1) / 2) * spread + (Math.random() - 0.5) * 0.05;
+          const newAngle = baseAngle + dAngle;
+          const newSpeed = speed * (0.78 + Math.random() * 0.18);
+          const newGen = p.gen + 1;
+          particles.push({
+            x: p.x,
+            y: p.y,
+            vx: Math.cos(newAngle) * newSpeed,
+            vy: Math.sin(newAngle) * newSpeed,
+            width: Math.max(0.6 * dpr, p.width * 0.72),
+            tail: Math.max(20 * dpr, p.tail * 0.78),
+            gen: newGen,
+            splitAt: newGen >= MAX_GEN
+              ? canvas.height + 1000
+              : p.y + remaining * (0.30 + Math.random() * 0.30),
+            alive: true,
+          });
+        }
+      }
+
+      let lastShowerAt = performance.now() - 4500; // 起動直後にすぐ1発来るように
+      const SHOWER_INTERVAL_MS = 5000;
+
+      function frame() {
+        // トレイルを透明化 (背景はそのまま透ける)
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const now = performance.now();
+        if (now - lastShowerAt >= SHOWER_INTERVAL_MS) {
+          lastShowerAt = now;
+          spawnPrimary();
+        }
+
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          if (!p.alive) { particles.splice(i, 1); continue; }
+
+          p.x += p.vx;
+          p.y += p.vy;
+
+          const len = Math.hypot(p.vx, p.vy);
+          const ux = p.vx / len, uy = p.vy / len;
+          const tx = p.x - ux * p.tail;
+          const ty = p.y - uy * p.tail;
+          const color = GEN_COLORS[Math.min(p.gen, GEN_COLORS.length - 1)];
+
+          // ── ブルーム (太く・薄く・ぼかし) ──
+          ctx.save();
+          ctx.shadowBlur = 18 * dpr;
+          ctx.shadowColor = color + '0.9)';
+          const bloomGrad = ctx.createLinearGradient(tx, ty, p.x, p.y);
+          bloomGrad.addColorStop(0, color + '0)');
+          bloomGrad.addColorStop(1, color + '0.35)');
+          ctx.strokeStyle = bloomGrad;
+          ctx.lineWidth = p.width * 3.0;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+          ctx.restore();
+
+          // ── 通常トレイル ──
+          const grad = ctx.createLinearGradient(tx, ty, p.x, p.y);
+          grad.addColorStop(0, color + '0)');
+          grad.addColorStop(1, color + '0.95)');
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = p.width;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+
+          // ── ヘッドのグロー (大) ──
+          const rOuter = p.width * 5.0;
+          const rgOuter = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rOuter);
+          rgOuter.addColorStop(0, color + '0.55)');
+          rgOuter.addColorStop(0.4, color + '0.22)');
+          rgOuter.addColorStop(1, color + '0)');
+          ctx.fillStyle = rgOuter;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, rOuter, 0, Math.PI * 2);
+          ctx.fill();
+
+          // ── ヘッドの芯 ──
+          const r = p.width * 2.2;
+          const rg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+          rg.addColorStop(0, color + '1)');
+          rg.addColorStop(1, color + '0)');
+          ctx.fillStyle = rg;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 分裂判定
+          if (p.gen < MAX_GEN && p.y >= p.splitAt) {
+            // 分裂位置でフラッシュ (ブルーム付き)
+            ctx.save();
+            ctx.shadowBlur = 24 * dpr;
+            ctx.shadowColor = color + '1)';
+            ctx.fillStyle = color + '0.85)';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.width * 3.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            splitParticle(p);
+            p.alive = false;
+            continue;
+          }
+
+          if (p.y > canvas.height + 60 || p.x < -120 || p.x > canvas.width + 120) {
+            p.alive = false;
+          }
+        }
+
+        requestAnimationFrame(frame);
+      }
+
+      if (!reduceMotion) {
+        frame();
+      } else {
+        canvas.style.opacity = '0.4';
+      }
+    })();
+
     // ===== Elements =====
     const $ = (id) => document.getElementById(id);
     const screenSetup = $('screen-setup');
